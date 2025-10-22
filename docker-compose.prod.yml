@@ -1,0 +1,33 @@
+version: '3.9'
+
+services:
+  proxy:
+    image: nginx:latest
+    restart: unless-stopped
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+  backend:
+    build:
+      context: ./backend
+    environment:
+      - DATA_DIR=/data
+      - LOG_DIR=/data/logs
+    volumes:
+      - ./data:/data
+    expose:
+      - '8000'
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      - NEXT_PUBLIC_API_BASE=https://localhost
+    expose:
+      - '3000'

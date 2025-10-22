@@ -1,0 +1,24 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      - DATA_DIR=/data
+      - LOG_DIR=/data/logs
+    volumes:
+      - ./backend/app:/app/app
+      - ./data:/data
+    ports:
+      - '8000:8000'
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
