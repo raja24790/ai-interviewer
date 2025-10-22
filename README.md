@@ -63,4 +63,45 @@ NEXT_PUBLIC_WS_BASE=ws://localhost:8000
 ```
 
 
+## Security/Privacy Notes
+- All processing is local by default. When `LLM_PROVIDER=openai`, only text is sent.
+- Webcam frames are processed **in-browser** for attention/phone detection (no raw video leaves device); only **events** are sent to backend.
+- Audio chunks for STT are sent to backend over HTTPS; they are stored under `/data/audio/SESSION_ID/*.wav` and removed after report generation.
+
+
 ---
+
+
+## Architecture
+- **Frontend** (Next.js):
+- `AttentionMonitor`: TF.js FaceMesh + COCO-SSD detects face presence, gaze proxy, and `person` holding `cell phone` heuristic. Emits events over WebSocket.
+- `AudioCapture`: MediaRecorder with 16k mono; streams small WAV/PCM chunks to backend `/stt/stream`.
+- `Avatar`: Canvas-based 2D avatar with simple viseme animation driven by TTS word boundary events; can be swapped for Wav2Lip output.
+- `ScorePanel`: live rubric scores + final downloadable JSON/PDF (PDF generated on backend).
+- **Backend** (FastAPI):
+- `/interview/start` → returns `session_id`, question set, and a signed WS token.
+- `/stt/stream` → accepts audio chunks; runs faster-whisper; returns partial/final transcripts.
+- `/report/finalize` → aggregates attention, transcripts, LLM evaluations; returns JSON & PDF.
+- WebSocket `/interview/ws/{session_id}` for real-time events.
+
+
+---
+
+
+## Swapping LLMs
+- **Local (default)**: Run Ollama on host; set `LLM_PROVIDER=ollama`.
+- **Remote**: Use any OpenAI-compatible endpoint (Mistral, Groq, OpenRouter); set `OPENAI_BASE_URL` + `OPENAI_API_KEY`.
+
+
+---
+
+
+## Production hardening checklist
+- Enable HTTPS (reverse proxy: Nginx or Caddy) and secure WS (wss)
+- Persist `/data` volume; rotate logs; redact PII in logs
+- Configure CORS origins, rate limiting, and session auth
+- Optional WebRTC SFU if you centralize media later
+
+
+----------------------------------------
+
