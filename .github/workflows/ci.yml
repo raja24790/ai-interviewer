@@ -1,0 +1,101 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    env:
+      RUN_FULL_PIPELINE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: interviewdb
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test" --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend deps
+        run: pip install -r backend/requirements.txt
+
+      - name: Run backend tests
+        if: env.RUN_FULL_PIPELINE == 'true'
+        run: pytest -v
+
+      - name: Run safety audit
+        if: env.RUN_FULL_PIPELINE == 'true'
+        run: safety check --full-report
+
+      - name: Run Bandit (Python security)
+        if: env.RUN_FULL_PIPELINE == 'true'
+        run: bandit -r backend/app -ll
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend deps
+        run: |
+          cd frontend
+          yarn install
+
+      - name: Install Playwright browsers
+        if: env.RUN_FULL_PIPELINE == 'true'
+        run: |
+          cd frontend
+          npx playwright install --with-deps
+
+      - name: Run frontend build
+        run: |
+          cd frontend
+          yarn build
+
+      - name: Run Playwright tests
+        if: env.RUN_FULL_PIPELINE == 'true'
+        run: |
+          cd frontend
+          npx playwright test
+
+      - name: Build docker images
+        if: env.RUN_FULL_PIPELINE == 'true'
+        run: docker compose build
+
+      - name: Trivy scan
+        if: env.RUN_FULL_PIPELINE == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ai-interviewer-backend:latest
+          severity: HIGH,CRITICAL
+
+      - name: Run npm audit
+        if: env.RUN_FULL_PIPELINE == 'true'
+        run: |
+          cd frontend
+          npm audit --audit-level=moderate || true
+
+      - name: Prepare report artifacts
+        if: env.RUN_FULL_PIPELINE == 'true'
+        run: mkdir -p backend/app/data/reports
+
+      - name: Upload reports
+        if: env.RUN_FULL_PIPELINE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: backend/app/data/reports
