@@ -95,7 +95,7 @@ jobs:
 
       - name: Upload reports
         if: env.RUN_FULL_PIPELINE == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: reports
           path: backend/app/data/reports
