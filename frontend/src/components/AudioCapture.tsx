@@ -7,15 +7,6 @@ type AudioCaptureProps = {
   onTranscript?: (transcript: string) => void;
 };
 
-type SpeechRecognitionConstructor = new () => SpeechRecognition;
-
-declare global {
-  interface Window {
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-    SpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
-
 export default function AudioCapture({
   sessionId,
   questionIndex = 0,

@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..deps import SettingsType, get_settings
 from ..models import AttentionSnapshot, InterviewSession
-from ..schemas import AttentionSnapshotResponse, InterviewStartRequest, InterviewStartResponse, TokenResponse
+from ..schemas import (
+    AttentionEventRequest,
+    AttentionSnapshotResponse,
+    InterviewStartRequest,
+    InterviewStartResponse,
+    TokenResponse,
+)
 from ..services.auth import create_access_token
 from ..services.storage import purge_expired
 from ..utils.logging import get_logger
@@ -65,6 +71,32 @@ async def start_interview(
         questions=list(questions),
         token=TokenResponse(access_token=token),
     )
+
+
+@router.post("/{session_id}/attention", status_code=status.HTTP_201_CREATED)
+async def record_attention_event(
+    session_id: str,
+    payload: AttentionEventRequest,
+) -> dict:
+    """Record an attention event from the frontend."""
+    with session_scope() as db:
+        # Check if session exists
+        session = db.query(InterviewSession).filter(InterviewSession.session_id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+        # Create new attention snapshot
+        snapshot = AttentionSnapshot(
+            session_id=session_id,
+            state=payload.state,
+            score=payload.confidence,
+            last_event=payload.event,
+        )
+        db.add(snapshot)
+        db.commit()
+
+    logger.info("Attention event recorded for session %s: %s (%s)", session_id, payload.state, payload.event)
+    return {"status": "recorded"}
 
 
 @router.get("/{session_id}/attention", response_model=AttentionSnapshotResponse)
