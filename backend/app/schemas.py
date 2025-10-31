@@ -73,5 +73,12 @@ class AttentionSnapshotResponse(BaseModel):
     last_event: Optional[str] = None
 
 
+class AttentionEventRequest(BaseModel):
+    state: str = Field(..., description="Attention state: focused, distracted, or unknown")
+    event: str = Field(..., description="Event description")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
 class HealthResponse(BaseModel):
     status: str = "ok"
