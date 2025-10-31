@@ -43,6 +43,7 @@ def app(tmp_path, monkeypatch):
     db._engine = None  # type: ignore[attr-defined]
 
     application = create_app()
+    db.init_db()  # Create database tables for test
     yield application
 
     deps.get_settings.cache_clear()
@@ -51,6 +52,6 @@ def app(tmp_path, monkeypatch):
 
 @pytest.fixture()
 async def client(app):
-    transport = ASGITransport(app=app, lifespan="on")
+    transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as async_client:
         yield async_client
